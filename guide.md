@@ -339,7 +339,7 @@ async def call_child(request, payload):
 }
 ```
 
-`standard`는 일반 송금, `precise`는 정밀 송금입니다. `mode`를 생략하면 허용된 프로젝트 송금 모드에 따라 결정되므로 의도가 분명하면 명시하세요. 일반 송금의 `status=scheduled`는 접수·정산 대기이며 즉시 지급 완료를 뜻하지 않습니다. 상세 규약은 [권한 문서](https://coders-kr.github.io/coders-core-v2-guide/#permissions)를 참고하세요.
+`standard`는 일반 송금, `precise`는 정밀 송금입니다. `mode`를 생략하면 허용된 프로젝트 송금 모드에 따라 결정되므로 의도가 분명하면 명시하세요. 일반 송금의 `status=scheduled`는 접수·정산 대기이며 즉시 지급 완료를 뜻하지 않습니다. 상세 규약은 [권한 문서](https://docs.coders.kr/#permissions)를 참고하세요.
 
 ## 7. 오류와 재시도
 
@@ -371,7 +371,7 @@ sandbox 화면은 Core가 계좌·권한 확인 모달과 안전한 재시도를
 - 접수 전 거부는 사용자의 재시도 동작에 `result.retry()`를 연결할 수 있습니다. SDK는 확인 창을 닫았다는 이유만으로 유료 요청을 자동 실행하지 않습니다.
 - 전송 예외의 `error.retry()`도 기존 키·본문을 유지합니다.
 
-현재 SDK의 `openAccountWindow()`는 URL의 기존 쿼리를 채널 값으로 교체합니다. 엔드포인트별 예산을 쓰는 경우 `endpoint` 정보가 빠져 확인 금액이 프로젝트 기본 예산을 기준으로 표시될 수 있습니다. 정확한 URL을 유지해야 할 때는 반환된 `accountActionUrl`을 그대로 새 탭 링크로 연결하세요. 프론트 연동의 핵심 규약은 이 절의 [프론트 처리](https://coders-kr.github.io/coders-core-v2-guide/#frontend)에 있습니다.
+현재 SDK의 `openAccountWindow()`는 URL의 기존 쿼리를 채널 값으로 교체합니다. 엔드포인트별 예산을 쓰는 경우 `endpoint` 정보가 빠져 확인 금액이 프로젝트 기본 예산을 기준으로 표시될 수 있습니다. 정확한 URL을 유지해야 할 때는 반환된 `accountActionUrl`을 그대로 새 탭 링크로 연결하세요. 프론트 연동의 핵심 규약은 이 절의 [프론트 처리](https://docs.coders.kr/#frontend)에 있습니다.
 
 공통 `/c` 칩은 `/run`과 all의 HTML 페이지에 Core가 제공합니다. 직접 잔액 조회 코드를 넣거나 칩에 계좌 키를 전달할 필요가 없습니다. all 프로젝트 코드는 칩의 Coders 출처 iframe 안에 있는 계좌 정보를 직접 읽을 수 없습니다.
 
@@ -407,6 +407,6 @@ sandbox 화면은 Core가 계좌·권한 확인 모달과 안전한 재시도를
 - [ ] 준비 중 202, 잔액 부족 402, 권한 부족 403을 각각 처리한다.
 - [ ] 결과 불명 재전송과 명시적인 새 실행을 구분해 중복 지급을 방지한다.
 
-관련 주제: [GitHub 준비](https://coders-kr.github.io/coders-core-v2-guide/#github) · [계좌·예산](https://coders-kr.github.io/coders-core-v2-guide/#budget) · [권한](https://coders-kr.github.io/coders-core-v2-guide/#permissions) · [오류·재시도](https://coders-kr.github.io/coders-core-v2-guide/#errors).
+관련 주제: [GitHub 준비](https://docs.coders.kr/#github) · [계좌·예산](https://docs.coders.kr/#budget) · [권한](https://docs.coders.kr/#permissions) · [오류·재시도](https://docs.coders.kr/#errors).
 
 [Core v2 OpenAPI](https://core-v2.coders.kr/openapi.json)에서 API 경로와 입력 형식을 확인할 수 있습니다.
