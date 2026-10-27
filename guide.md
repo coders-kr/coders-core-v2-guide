@@ -25,24 +25,27 @@ GitHub 저장소 + 전체 커밋 + coders.json
 여러 사용자는 워크스페이스를 공유하고 공동 계좌로 실행 비용을 지불합니다.
 로그인은 coders.kr OIDC, 계좌와 권한 집행은 Core가 담당합니다.
 
-[공개 예제](https://api.coders.kr/coders-kr/coders-github-example/443c957a547d890891d1365ab31d0a5794b4229e) · [예제 저장소](https://github.com/coders-kr/coders-github-example)
+[공개 예제](https://api.coders.kr/cykim8811/coders-http-example/6a01565e841de03f4276a8770c63227c896f7175) · [예제 저장소](https://github.com/cykim8811/coders-http-example)
 
 ## 최소 프로젝트
 
 ```text
 coders.json
-api/analyze.py
+Dockerfile
+requirements.txt
+api/main.py
 public/index.html
 public/.coders-ui.json
+.github/workflows/coders-build.yml
 ```
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "name": "텍스트 분석",
   "frontend": {"directory": "public"},
   "endpoints": {
-    "analyze": {"file": "api/analyze.py", "budget": "11.00"}
+    "analyze": {"path": "/analyze", "methods": ["POST"], "budget": "11.00"}
   },
   "permissions": []
 }
@@ -57,19 +60,72 @@ app = FastAPI()
 class Input(BaseModel):
     text: str
 
-@app.post("/")
+@app.post("/analyze")
 def analyze(body: Input):
-    # 실행 인증과 비용 정산은 Core가 담당합니다.
+    # 일반적인 HTTP 앱입니다. 비용·권한은 Core가 처리합니다.
     return {"characters": len(body.text)}
 ```
 
-코드 엔드포인트는 `file`과 선택적 `path`, `methods`, `budget`, `openapi`를 사용합니다.
-기본 경로는 `/`, 메서드는 `["POST"]`입니다. `openapi`는 같은 저장소의 JSON 파일입니다.
-공식 자원 참조는 `{"endpoint":"coders-openai","budget":"5.00"}` 형식으로 선언하고 자원의 메서드와 요청 계약을 따릅니다.
-엔드포인트별 예산의 기본값은 `request_budget`이며, 생략 시 30원입니다.
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY api ./api
+USER 65534:65534
+CMD ["sh", "-c", "exec uvicorn api.main:app --host 0.0.0.0 --port $PORT"]
+```
 
+`requirements.txt`에 `fastapi`, `uvicorn`과 앱 의존성을 선언합니다. Node.js·Express·Next.js 등도
+같은 방식으로 Dockerfile에서 코드와 의존성을 준비하고 `PORT`에서 HTTP를 제공합니다.
+
+### 공개 GitHub Actions 빌드
+
+공개 레포의 `.github/workflows/coders-build.yml`이 GitHub-hosted runner에서 이미지를 빌드합니다.
+이미지는 공개 GHCR 패키지 `ghcr.io/{owner}/{repo}:sha-{전체 커밋}`에 게시합니다.
+패키지 이름을 별도로 사용하는 앱은 `coders.json`의 `image`에 태그 없는 GHCR 이름을 선언합니다.
+새 GHCR 패키지는 설정 화면에서 Public으로 지정합니다.
+
+워크플로는 `docker/build-push-action`으로 `linux/amd64` 이미지를 게시하고
+`actions/attest-build-provenance`에 `subject-name`, 빌드 결과 `subject-digest`,
+`push-to-registry: true`를 전달합니다. 권한은 `contents: read`, `packages: write`,
+`id-token: write`, `attestations: write`입니다.
+
+[실행 가능한 워크플로 예제](https://github.com/cykim8811/coders-http-example/blob/main/.github/workflows/coders-build.yml)
+
+Core는 공개 레포 ID·게시 커밋·GitHub-hosted 빌드 증명을 확인한 후 이미지 digest를 고정합니다.
+검증된 이미지를 준비하고 첫 접속을 진행합니다. 빌드가 준비되지 않았으면 준비 상태에 원인을 표시하며,
+다시 준비할 수 있습니다. 빌드는 개발자의 GitHub Actions에서 수행합니다.
+압축 이미지 용량의 기본 상한은 512 MiB입니다.
+
+### HTTP 실행 계약
+
+- `0.0.0.0:$PORT`에서 HTTP 서버를 실행합니다. 현재 포트는 8080입니다.
+- 실행 사용자는 UID/GID `65534`이며, 루트 파일시스템은 읽기 전용입니다.
+- `/tmp`는 실행 환경에 귀속된 64 MiB 임시 영역입니다. 영속 데이터는 `DATABASE_URL`로 저장합니다.
+- 이미지의 추가 `VOLUME` 선언은 허용된 저장 범위에 포함되지 않습니다.
+- Core 자원 호출은 `CODERS_URL`, PostgreSQL은 `DATABASE_URL`을 사용합니다.
+- 계좌·관리자·공급자 비밀키는 Core가 관리합니다.
+
+컨테이너는 같은 앱 이미지·사용자·워크스페이스·접근 역할·권한 범위에서 순차 재사용합니다.
+응답 완료 후 앱을 일시 중지하고, 해당 요청의 중계 권한과 DB 연결을 닫아 정산합니다.
+다음 요청에는 새 실행 계좌·중계 문맥을 연결합니다. DB 연결 풀은 끊긴 연결을 다시 열도록 설정합니다.
+SQLAlchemy는 `pool_pre_ping=True`, Node.js `pg.Pool`은 유휴 연결의 `error` 처리를 구성합니다.
+유휴 기본 60초, 풀 용량 초과·배포·오류·예산 소진에 따라 컨테이너를 종료할 수 있습니다.
+메모리와 임시 파일은 같은 격리 범위에서 재사용될 수 있으며 영속성은 DB로 관리합니다.
+
+요청 밖의 백그라운드 작업은 실행 지속성이 보장되지 않습니다. HTTP 응답은 최대 본문 크기 안에서
+모아서 반환합니다. 현재 실행기는 일반 HTTP를 제공하며 WebSocket·실시간 스트리밍은 별도 확장 대상입니다.
+컨테이너당 동시 요청은 하나이며, 실행 슬롯이 부족하면 `503 sandbox_busy`를 반환합니다.
+
+엔드포인트는 `path`, `methods`, `budget`, `openapi`를 선언합니다. 기본 경로는 `/`, 메서드는
+`["POST"]`입니다. `openapi`는 같은 저장소의 JSON 파일입니다.
+공식 자원 참조는 `{"endpoint":"coders-openai","budget":"5.00"}` 형식으로 선언합니다.
+엔드포인트별 예산 기본값은 `request_budget`이며 생략 시 30원입니다.
 `frontend`와 `endpoints` 중 하나 이상을 선언합니다. 프론트 디렉토리는 `index.html`을 포함합니다.
-파일 경로는 저장소 기준 상대 경로이고, 프론트 디렉토리의 파일들이 공개 파일입니다.
+앱 기본 화면은 이 프론트 파일 또는 Core가 생성한 화면입니다. 컨테이너의 HTTP 응답은 선언한 엔드포인트 경로로 호출합니다.
+
+단일 Python 파일을 실행하는 `version: 1`도 지원하며, `file`에 ASGI `app`을 정의한 파일을 지정합니다.
 
 ## GitHub 버전 실행
 
@@ -155,7 +211,7 @@ async def read_notes():
         return await (await db.execute("SELECT * FROM notes")).fetchall()
 ```
 
-일반 SQL·트랜잭션·COPY와 ORM을 사용합니다. psycopg 3, SQLAlchemy 2, asyncpg가 설치됩니다.
+일반 SQL·트랜잭션·COPY와 ORM을 사용합니다. psycopg·SQLAlchemy·asyncpg·pg 등 사용하는 드라이버를 앱 이미지의 의존성에 포함합니다.
 워크스페이스 소유자가 용량과 보관 기간을 공동 계좌에서 선결제합니다. 실행 중 DB 연결 시간의
 사용료는 요청 예산에서 지출하며, 읽기 전용 멤버는 물리 복제된 읽기 전용 DB를 사용합니다.
 DB 연결은 실행 수명과 현재 워크스페이스 권한에 귀속됩니다.
@@ -221,15 +277,15 @@ SDK는 결과, 상태, 실행 ID, 멱등성 키, Core 확인 URL, 동일 요청�
 
 ## 지원 범위
 
-- 공개 GitHub 저장소, 전체 40자리 커밋, `coders.json` version 1.
-- 단일 Python ASGI 파일과 플랫폼 설치 패키지.
+- 공개 GitHub 저장소, 전체 40자리 커밋, `coders.json` version 2와 공개 빌드 이미지.
+- Dockerfile에 포함된 앱·의존성과 표준 HTTP 서버.
 - 일반 파일·디렉토리의 정적 프론트.
 - 선택적 저장소 내부 OpenAPI JSON과 Swagger UI 호출.
 - 앱별 독립 워크스페이스, 멤버 읽기·수정 권한, 워크스페이스 공동 계좌.
 - 원화 여섯 자리 정산, 목표 잔액 충전, Polar 결제.
 
 실행 아티팩트와 명세는 커밋에 고정되고, 런타임·자원 요율은 플랫폼 운영 설정으로 결정합니다.
-운영은 단일 Core, 요청별 Docker 실행과 워크스페이스별 PostgreSQL을 사용합니다.
+운영은 단일 Core, 격리 범위별 HTTP 실행 환경과 워크스페이스별 PostgreSQL을 사용합니다.
 
 ## 호환 체크리스트
 
