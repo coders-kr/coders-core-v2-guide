@@ -126,6 +126,22 @@ HTTP 이미지에서 WebSocket 경로를 구현하고 엔드포인트에 `GET`�
 "live": {"path": "/live", "methods": ["GET"], "budget": "11.00"}
 ```
 
+서버는 일반 WebSocket 핸들러를 구현합니다. Python 이미지는 `fastapi`, `uvicorn`, `websockets`를
+의존성으로 준비합니다.
+
+```python
+from fastapi import WebSocket, WebSocketDisconnect
+
+@app.websocket("/live")
+async def live(socket: WebSocket):
+    await socket.accept()
+    try:
+        while True:
+            await socket.send_text(await socket.receive_text())
+    except WebSocketDisconnect:
+        pass
+```
+
 앱 프론트에서는 프로젝트 세션으로 같은 출처의 `/api/live`에 연결합니다.
 
 ```javascript
