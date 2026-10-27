@@ -125,6 +125,25 @@ SQLAlchemy는 `pool_pre_ping=True`, Node.js `pg.Pool`은 유휴 연결의 `error
 끊긴 연결은 새로 생성합니다. HTTP 응답은 최대 본문 크기 안에서 모아서 반환합니다.
 기본 리소스당 동시 연결 한도는 32개입니다. 실행 용량 부족은 `503 sandbox_busy`입니다.
 
+### Redis
+
+리소스 소유자가 **Redis · 보관 및 실행**에서 활성화하면 HTTP 이미지 앱에 `REDIS_URL`을 제공합니다.
+일반 Redis 클라이언트를 사용하며, 앱 이미지에 클라이언트 의존성을 설치합니다.
+
+```python
+import os
+from redis.asyncio import Redis
+
+redis = Redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
+await redis.set("greeting", "안녕하세요")
+```
+
+Redis는 앱 자동 중지와 별개로 실행되며 CPU·메모리 비용은 공동 잔액에서 지출합니다.
+소유자는 실행·일시 중지·삭제를 관리합니다. 잔액 부족 시 실행을 멈추고 구매한 보관 기간 동안 파일을 유지합니다.
+기본 데이터 메모리는 64 MiB이며 `noeviction`과 AOF 영속성을 적용합니다.
+서버 재시작과 연결 갱신에 대응해 클라이언트 재연결을 구성합니다.
+같은 리소스의 키·채널을 사용하며 관리·설정·복제·외부 이동 명령은 Core 서비스 ACL을 따릅니다.
+
 ### WebSocket
 
 HTTP 이미지에서 WebSocket 경로를 구현하고 엔드포인트에 `GET`을 선언합니다.
