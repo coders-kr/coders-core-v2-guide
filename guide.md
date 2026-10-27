@@ -143,22 +143,22 @@ Core는 요청 예산을 예약하고 실제 사용액을 정산한 뒤 남은 �
 실행 코드는 `CODERS_URL`을 자원 API의 기준 주소로 사용합니다.
 브로커가 현재 사용자·앱·리소스·실행 계좌 문맥으로 인증과 예산을 전달합니다.
 
+워크스페이스 DB는 표준 PostgreSQL 연결 주소 `DATABASE_URL`로 사용합니다.
+
 ```python
 import os
-import httpx
+import psycopg
 
 async def read_notes():
-    # 저장 요청은 선택된 리소스의 데이터 범위에 귀속됩니다.
-    async with httpx.AsyncClient(base_url=os.environ["CODERS_URL"]) as client:
-        return await client.get(
-            "/store/my_app/notes",
-            headers={"Idempotency-Key": "read-notes"},
-        )
+    # 현재 워크스페이스의 DB에 연결합니다.
+    async with await psycopg.AsyncConnection.connect(os.environ["DATABASE_URL"]) as db:
+        return await (await db.execute("SELECT * FROM notes")).fetchall()
 ```
 
-저장은 앱 리소스를 선택한 실행에서 호출합니다. 공유는 리소스 읽기·수정 권한을 따릅니다.
-생성과 연장은 `retention_seconds`로 기간을 지정하고, DB 비용과 보관료는 호출 예산에서 지출합니다.
-삭제 시 미사용 보관료는 실제 구매자 계좌로 환불합니다.
+일반 SQL·트랜잭션·COPY와 ORM을 사용합니다. psycopg 3, SQLAlchemy 2, asyncpg가 설치됩니다.
+워크스페이스 소유자가 용량과 보관 기간을 공동 계좌에서 선결제합니다. 실행 중 DB 연결 시간의
+사용료는 요청 예산에서 지출하며, 읽기 전용 멤버는 물리 복제된 읽기 전용 DB를 사용합니다.
+DB 연결은 실행 수명과 현재 워크스페이스 권한에 귀속됩니다.
 
 하위 코드 주소도 같은 문맥을 사용합니다. 코드 예산의 기본값은 엔드포인트 명세와 현재 가용액 중 작은 값입니다.
 공식 자원 호출은 가용액을 기본 상한으로 사용하고 `Coders-Budget`으로 금액을 지정할 수 있습니다.
@@ -229,7 +229,7 @@ SDK는 결과, 상태, 실행 ID, 멱등성 키, Core 확인 URL, 동일 요청�
 - 원화 여섯 자리 정산, 목표 잔액 충전, Polar 결제.
 
 실행 아티팩트와 명세는 커밋에 고정되고, 런타임·자원 요율은 플랫폼 운영 설정으로 결정합니다.
-운영은 단일 Core 저장소 제어와 요청별 Docker 실행을 사용합니다.
+운영은 단일 Core, 요청별 Docker 실행과 워크스페이스별 PostgreSQL을 사용합니다.
 
 ## 호환 체크리스트
 
@@ -237,7 +237,7 @@ SDK는 결과, 상태, 실행 ID, 멱등성 키, Core 확인 URL, 동일 요청�
 2. 코드 파일에 ASGI `app`을 제공하고 필요한 패키지를 확인합니다.
 3. 실행·자원 사용을 감당하는 요청 예산을 선언합니다.
 4. 외부 동작과 개발자 프론트에 필요한 권한을 선언합니다.
-5. 저장은 선택한 리소스 문맥과 `retention_seconds`를 사용합니다.
+5. 워크스페이스 DB를 준비하고 `DATABASE_URL`을 일반 PostgreSQL 드라이버에 전달합니다.
 6. 자원 호출은 `CODERS_URL`, 프론트 호출은 프로젝트 SDK를 사용합니다.
 7. 준비 중·잔액 부족·승인·결과 불명 응답을 처리합니다.
 8. 동일 작업의 키와 본문을 보존하고 실제 사용자 흐름을 확인합니다.
