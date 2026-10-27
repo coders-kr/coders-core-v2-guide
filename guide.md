@@ -112,8 +112,16 @@ Core는 공개 레포 ID·게시 커밋·GitHub-hosted 빌드 증명을 확인�
 WebSocket을 통해 동시에 접속하며, 메모리와 DB 연결 풀을 함께 사용합니다.
 Core는 리소스 간 실행 환경·네트워크·데이터·자금을 격리합니다.
 
-요청에는 검증한 `Coders-User-Id`, `Coders-Resource-Id` 헤더를 주입합니다.
-앱은 사용자 ID를 바탕으로 문서 조회·편집 등 내부 권한을 집행합니다.
+HTTP 이미지 서버의 HTTP 요청과 WebSocket 연결에는 검증한 실행 문맥을 전달합니다.
+
+| 헤더 | 값 |
+| --- | --- |
+| `Coders-User-Id` | 현재 요청의 Coders 사용자 ID |
+| `Coders-Resource-Id` | 현재 리소스 ID |
+| `Coders-Resource-Role` | 해당 사용자가 리소스 소유자이면 `owner`, 다른 멤버이면 `member` |
+
+Core는 클라이언트가 보낸 신원·역할 헤더를 제외하고 현재 원장에서 확인한 값을 주입합니다.
+앱은 Core가 중계한 요청의 사용자 ID와 역할을 바탕으로 내부 권한을 집행합니다.
 리소스의 멤버는 앱에 같은 데이터 접근 권한을 제공하며, 리소스 소유자가 공통 실행 권한을 관리합니다.
 
 소유자는 **자동 중지**와 **계속 실행**을 선택합니다. 자동 중지는 활성 요청·연결이 없어진 뒤
@@ -143,6 +151,28 @@ Redis는 앱 자동 중지와 별개로 실행되며 CPU·메모리 비용은 �
 기본 데이터 메모리는 64 MiB이며 `noeviction`과 AOF 영속성을 적용합니다.
 서버 재시작과 연결 갱신에 대응해 클라이언트 재연결을 구성합니다.
 같은 리소스의 키·채널을 사용하며 관리·설정·복제·외부 이동 명령은 Core 서비스 ACL을 따릅니다.
+
+### 앱 초기 관리자 지정
+
+Docmost 같은 앱은 소유자가 처음 접속할 때 `Coders-Resource-Role: owner`와
+`Coders-User-Id`를 사용해 초기 관리자를 지정합니다. 리소스 ID나 소유자 사용자 ID를
+배포 설정에 고정할 필요가 없습니다.
+
+```python
+from fastapi import HTTPException, Request
+
+
+def bootstrap_owner_id(request: Request) -> str:
+    # Coders가 중계한 요청에서 검증한 소유자 신원을 확인합니다.
+    if request.headers.get("coders-resource-role") != "owner":
+        raise HTTPException(403, "리소스 소유자가 초기 설정을 완료해야 합니다.")
+    return request.headers["coders-user-id"]
+```
+
+앱은 초기 설정 완료 여부와 관리자 계정을 리소스 DB에 원자적으로 저장합니다.
+멤버가 먼저 방문하면 소유자의 초기 설정을 기다리는 화면을 표시합니다.
+이후 관리자·편집자 등 앱 내부 역할은 앱 정책으로 관리합니다.
+신원 헤더는 요청별로 읽으며, 리소스의 여러 사용자가 공유하는 프로세스 전역 값으로 보관하지 않습니다.
 
 ### WebSocket
 
