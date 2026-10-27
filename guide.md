@@ -270,6 +270,65 @@ HTTP 이미지 호출은 요청 접수 비용을 지불하고 리소스 공용 �
 리소스 목록과 앱 설정·첫 동의 화면은 리소스를 카드로 나열합니다.
 리소스 카드를 누르면 해당 데이터 범위로 앱을 실행합니다. 카드의 `⋯`에서 공유와 권한을 관리합니다.
 
+### 앱 이용료 받기
+
+앱은 **리소스 공동 계좌에서 개발자의 Coders 계좌로 송금**하여 이용료를 받을 수 있습니다.
+컴퓨팅·DB·Redis 등의 인프라 사용료는 Coders에 지급되고, 앱 이용료는 앱 코드가 정한
+수취 계좌와 금액으로 지급됩니다. 개발자 수익 지급에는 일반 계좌 송금 API를 사용합니다.
+
+1. 개발자는 자신의 `/account`에서 수취할 **계좌 ID**를 확인합니다. 계좌 ID는 입금 대상 식별자입니다.
+2. `coders.json`의 `permissions`에 `transfer`를 선언합니다. 리소스 소유자는 Core 권한 화면에서 승인합니다.
+3. 앱 서버가 `CODERS_URL`의 `/v1/accounts/transfers`를 호출합니다. Core가 현재 리소스의 권한·잔액·실행 예산을 검사합니다.
+4. 일반 송금은 금액을 예약 정산 계좌로 옮긴 뒤 한국 시간 다음 자정에 수취 계좌별로 합산 지급합니다.
+
+기존 `coders.json`의 권한 선언에 다음 항목을 포함합니다.
+
+```json
+"permissions": ["transfer"]
+```
+
+다음은 이용 건당 **10.00원**을 받는 앱 서버 예제입니다. 앱 이미지에 `httpx`를 설치하고,
+수취 계좌 ID를 실제 개발자 계좌 ID로 바꿉니다.
+
+```python
+import os
+
+import httpx
+
+SELLER_ACCOUNT_ID = "개발자의_Coders_계좌_ID"
+
+
+async def charge_usage(invoice_id: str):
+    # invoice_id는 DB에 저장한 이용 건 ID입니다. 같은 이용 건의 재시도에 재사용합니다.
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.post(
+            os.environ["CODERS_URL"] + "/v1/accounts/transfers",
+            headers={"Idempotency-Key": "app-fee:" + invoice_id},
+            json={
+                "recipient_id": SELLER_ACCOUNT_ID,
+                "amount": "10",
+                "mode": "standard",
+            },
+        )
+        response.raise_for_status()
+        # status="scheduled"는 자정 합산 지급을 위한 송금 접수 완료입니다.
+        return response.json()
+```
+
+브로커가 현재 실행 계좌를 전달하므로 앱 코드는 계좌 비밀키를 보유할 필요가 없습니다.
+승인된 송금 권한은 리소스 예산 안에서 반복 사용합니다. 수취 계좌·가격·청구 시점은 앱이 정합니다.
+실행 예산에는 송금액과 Core 처리비·컴퓨팅 예약액이 함께 들어갑니다.
+
+같은 이용 건의 재시도에는 같은 금액·수취 계좌·방식과 같은 `Idempotency-Key`를 사용합니다.
+앱 서버의 내부 예산 갱신을 넘어 같은 리소스의 송금 결과를 재사용합니다.
+서로 다른 이용 건에는 서로 다른 키를 부여합니다. 앱의 이용 내역과 송금 결과도 DB에 저장하여 관리합니다.
+
+소수점 원화의 즉시 지급은 `transfer-precise` 권한과 `"mode": "precise"`를 사용합니다.
+일반 송금은 1원 단위이며 수취인 화면에 송금자 정보를 공개하지 않습니다.
+
+수취한 금액은 **Coders 내부 계좌 잔액**입니다. 현재 은행 계좌로 출금하는 기능은 제공하지 않습니다.
+앱 소프트웨어의 상업적 이용 허용 여부는 해당 소프트웨어의 라이선스 조건으로 별도 확인합니다.
+
 ## 실행 코드와 프론트 연동
 
 ### 백엔드 호출
