@@ -243,6 +243,27 @@ https://api.coders.kr/{owner}/{repo}/{40자리-commit}
 https://api.coders.kr/{owner}/{repo}/{40자리-commit}/analyze
 ```
 
+### 호스트별 경로와 인증
+
+| 호스트 | 경로 | 용도·인증 |
+| --- | --- | --- |
+| `core-v2.coders.kr` | `GET /github/{owner}/{repo}/{commit}` | 로그인과 프로젝트 준비·접속 화면 |
+| `core-v2.coders.kr` | `POST /github/{owner}/{repo}/{commit}/_prepare` | 명시적 준비. 로그인 세션과 CSRF 검증 |
+| `core-v2.coders.kr` | `GET /github/{owner}/{repo}/{commit}/_status` | 공개 준비 상태 조회 |
+| `api.coders.kr` | `GET /{owner}/{repo}/{commit}/_status` | 공개 준비 상태 조회 |
+| `api.coders.kr` | `/{owner}/{repo}/{commit}/{endpoint}` | 계좌 키·예산·멱등성 키로 엔드포인트 호출 |
+| 현재 앱 출처 | `/_coders/sdk.js`, `/api/{endpoint}` | 브라우저 SDK와 앱 세션 기반 호출 |
+
+`api.coders.kr`의 앱 주소를 브라우저에서 HTML로 열면 Core의 준비·접속 화면으로 이동합니다.
+명시적 `/_prepare`는 Core 확인 화면의 폼 요청이며 `csrf`와 준비 시도의 멱등 키인 `key`를 전달합니다.
+준비 비용은 로그인한 사용자의 기본 계좌에서 지급합니다.
+해당 요청은 `core-v2.coders.kr`의 로그인 호스트 검증을 받으며, `api.coders.kr`로 보내면
+`403 invalid_host`가 반환됩니다.
+
+외부 클라이언트는 공개 `/_status`로 상태를 조회하거나 계좌 인증으로 엔드포인트를 호출합니다.
+아직 준비되지 않은 버전의 엔드포인트 호출은 아래 준비 응답을 반환합니다.
+브라우저 SDK는 현재 앱 출처의 `/api/`를 사용하고 Core·API 도메인에는 직접 요청하지 않습니다.
+
 첫 접속은 준비 화면에서 저장소·커밋 게시 여부·명세를 확인하고 실행 아티팩트를 보관합니다.
 API 준비 중 응답은 `202`, `execution_started: false`와 상태 URL입니다.
 준비 완료 후 같은 키와 본문으로 실행을 요청합니다.
@@ -416,7 +437,60 @@ const result = await coders.request('/api/analyze', {
 });
 ```
 
-SDK는 결과, 상태, 실행 ID, 멱등성 키, Core 확인 URL, 동일 요청의 `retry()`를 반환합니다.
+### SDK 반환값과 오류 처리
+
+```javascript
+const result = await coders.request('/api/analyze', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ text: '분석할 문장' })
+});
+
+console.log(result.status, result.ok); // HTTP 상태 코드와 2xx 성공 여부
+console.log(result.data);             // JSON 해석 결과
+console.log(result.response.headers); // 원본 fetch Response의 헤더
+
+// SDK는 JSON을 복제한 Response로 읽으므로 원본 본문도 읽을 수 있습니다.
+if (result.data === null) {
+  console.log(await result.response.text());
+}
+```
+
+| 필드 | 의미 |
+| --- | --- |
+| `status` | HTTP 상태 코드. `result.response.status`와 동일 |
+| `ok` | HTTP 200–299이면 `true`. `result.response.ok`와 동일 |
+| `data` | JSON 해석 결과. JSON 응답이 아니거나 HEAD·204·205·304 응답이면 `null` |
+| `response` | 원본 Fetch API `Response`. 헤더와 `text()`·`json()`·`blob()` 등으로 본문 접근 |
+| `executionId` | `Coders-Execution-Id` 응답 헤더. 없으면 `null` |
+| `idempotencyKey` | 해당 요청에 사용한 `Idempotency-Key` |
+| `requiresPermission` | 권한 승인 응답인 403에 유효한 Core 확인 URL이 있으면 `true` |
+| `requiresAccountAction` | 유효한 Core 확인 URL이 있으면 `true` |
+| `accountActionUrl` | 검증된 Core 확인 URL. 없으면 `null` |
+| `retry()` | 원래 본문·메서드·멱등성 키로 같은 요청을 재전송하고 새 결과 반환 |
+
+HTTP 4xx·5xx도 위 결과로 반환합니다. 앱은 `status`와 `data.error`를 확인하여 처리합니다.
+네트워크 오류 또는 JSON으로 표시된 응답의 해석 실패는 `error.retry()`가 있는 예외를 던집니다.
+앱 출처 밖이나 `/api/` 밖의 경로는 요청 전에 `TypeError`로 거부합니다.
+
+```javascript
+try {
+  const result = await coders.request('/api/analyze', options);
+  if (!result.ok) {
+    // HTTP 오류 응답의 코드와 본문을 앱에서 처리합니다.
+    showError(result.status, result.data);
+  }
+} catch (error) {
+  // 응답 확인 실패는 성공·실패가 확정되지 않은 상태입니다.
+  // 사용자 재시도 동작에 error.retry()를 연결하면 같은 본문과 키를 유지합니다.
+  showRetry(error.message, error.retry);
+}
+```
+
+위 예제의 `options`, `showError`, `showRetry`는 앱에서 구성합니다.
+SDK 소스는 Core 저장소의 `src/coders/static/browser-sdk.js`입니다.
+Core는 현재 앱 출처의 `/_coders/sdk.js`에서 이 모듈을 제공합니다.
+
 `openAccountWindow(result.accountActionUrl)`는 사용자 클릭에서 Core 확인 창을 엽니다.
 완료 알림의 출처·창·채널을 확인하고 결과를 호출자에게 반환합니다.
 재시도 여부는 실행 상태와 아래 멱등성 규칙에 따라 결정합니다.
