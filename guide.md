@@ -511,6 +511,7 @@ Core는 현재 앱 출처의 `/_coders/sdk.js`에서 이 모듈을 제공합니�
 | 403 `resource_required` | 실행할 앱 리소스 선택 |
 | 403 `project_permission_required` | 연결·동의·철회 상태 확인 |
 | 409 멱등성 충돌 | 동일 키의 입력과 실행 결과 확인 |
+| 502 `application_start_failed` | 앱 종료 코드·메모리 한도·필수 설정·DB·Redis 활성화 확인 |
 | 503 `database_unavailable` | DB 복구 후 같은 키·본문으로 확인 |
 | 503 `ledger_busy` | 충돌 해소 후 같은 키·본문으로 확인 |
 | 통신 오류·결과 불명 | 기존 실행과 외부 작업 기록 확인 |
