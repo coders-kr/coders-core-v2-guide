@@ -418,6 +418,34 @@ async def charge_usage(invoice_id: str):
 
 ## 실행 코드와 프론트 연동
 
+### 선택적 요청 단위 공유 실행
+
+리소스 소유자는 **일반 설정 → 서버 공유**에서 앱 서버 공유와 DB 서버 공유를 각각 허용합니다.
+앱 서버 공유는 같은 앱·커밋·권한에 동의한 리소스 사이의 메모리 재사용을 허용합니다.
+DB 서버 공유는 리소스별 DB·역할·용량을 구분한 채 PostgreSQL 서버 자원을 공유합니다.
+각 요청의 비용과 데이터 접근 권한은 현재 리소스에 귀속됩니다.
+
+HTTP 이미지 앱은 `coders.json`의 최상위에 다음 선언을 추가하여 공유 실행을 지원합니다.
+
+```json
+{"version": 2, "shared_execution": "http-request"}
+```
+
+Core는 요청마다 현재 리소스의 `DATABASE_URL`·`REDIS_URL`·브로커 연결을 제공하며,
+`Coders-Resource-Id` 헤더로 리소스를 식별합니다. 주소 형식은 표준 PostgreSQL·Redis 그대로입니다.
+응답 후 연결이 닫히고 프로세스가 일시 중지됩니다. 메모리는 다음 동의 리소스의 요청에 재사용될 수 있습니다.
+
+- DB 스키마 준비는 각 리소스의 요청 안에서 멱등적으로 수행합니다.
+- DB·Redis 연결은 요청마다 열고 닫습니다. 재연결을 처리하는 풀도 사용할 수 있습니다.
+- 응답 뒤 작업은 전용 서버나 별도 작업 요청으로 처리합니다.
+- WebSocket은 리소스 전용 서버를 사용합니다.
+
+이 선언을 지원하는 앱에만 앱 서버 공유가 적용됩니다. 리소스 소유자의 공유 허용이 기본 활성화 조건입니다.
+공유 HTTP 컴퓨팅은 요청 시작부터 일시 중지까지 기존 요율로 계량하고 미사용 예약액을 반환합니다.
+DB 연결 요율과 보관 계약은 동일하며, 실제 비용은 연결 시간과 사용량에 따라 정해집니다.
+DB 서버 공유 변경 중에는 백업·복원이 끝날 때까지 리소스 접속이 일시 중지됩니다.
+[공동 편집 예제](https://github.com/cykim8811/coders-activity-demo)와 Core 저장소의 `examples/activity`를 참고하세요.
+
 ### 백엔드 호출
 
 실행 코드는 `CODERS_URL`을 자원 API의 기준 주소로 사용합니다.
@@ -597,7 +625,7 @@ Agent 인증은 해당 워크스페이스와 코드 버전에 묶이고, 연결 
 `createClient().watchActivity({onReset,onEvent,highlight:true})`로 데이터를 다시 조회하고,
 같은 `data-coders-target` ID를 가진 컴포넌트를 강조합니다.
 공유 서버의 활동은 앱의 보고로, 사용자 실행은 인증된 사용자 범위로 표시됩니다.
-[활동 규약](activity.html)과 [공동 편집 예제](activity-example.zip)를 참고하세요.
+[활동 규약](activity.html)과 [공동 편집 예제](../examples/activity/README.md)를 참고하세요.
 
 ## 오류와 재시도
 
