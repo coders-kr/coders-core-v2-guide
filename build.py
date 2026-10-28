@@ -12,7 +12,7 @@ from pygments.lexers import TextLexer, get_lexer_by_name
 from pygments.util import ClassNotFound
 
 ROOT = Path(__file__).parent
-BASE = 'https://docs.coders.kr/'
+BASE = 'https://dev.coders.kr/'
 REPO = 'https://github.com/coders-kr/coders-core-v2-guide'
 SECTIONS = ['integration', 'quickstart', 'github', 'budget', 'permissions', 'backend', 'errors', 'support', 'checklist']
 
