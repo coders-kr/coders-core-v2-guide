@@ -418,6 +418,56 @@ async def charge_usage(invoice_id: str):
 
 ## 실행 코드와 프론트 연동
 
+### 일반 HTTP 웹앱
+
+[HTTP 웹앱 예제 다운로드](http-webapp-example.zip) · [파일 저장소 상세](objects.html)
+
+HTTP 이미지 앱은 경로 접두사를 선언하여 기존 서버의 라우팅을 사용합니다.
+
+```json
+{
+  "version": 2,
+  "name": "협업 앱",
+  "services": ["postgres", "redis", "objects"],
+  "permissions": ["frontend"],
+  "browser": {"workers": true, "wasm": true, "blob_images": true},
+  "limits": {
+    "cpu_millis": 1000, "memory_mib": 1024,
+    "request_bytes": 16777216, "response_bytes": 16777216,
+    "timeout_seconds": 60, "concurrency": 16, "temporary_mib": 128,
+    "startup_seconds": 120, "shutdown_seconds": 10,
+    "readiness_path": "/health"
+  },
+  "routes": [{"prefix": "/", "endpoint": "server"}],
+  "endpoints": {
+    "server": {"path": "/", "methods": ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"]}
+  }
+}
+```
+
+`prefix`는 `/`로 시작하고 끝나는 경로입니다. 더 긴 접두사를 우선 적용하며, 참조하는 HTTP 엔드포인트의 `path`는 `/`입니다. 원래 하위 경로·쿼리·허용 메서드·바이너리 본문과 응답 MIME·다운로드 헤더를 전달합니다. WebSocket도 같은 경로 규칙과 인증·리소스·예산 검사를 사용합니다. CLI·Agent는 `/github/{owner}/{repo}/{commit}/{endpoint}/{path}`에서 같은 선언 경로를 호출합니다. `/_coders/*`는 Core가 처리합니다.
+
+`browser.workers`, `wasm`, `blob_images`는 앱 출처 안의 브라우저 기능입니다. `browser.origins`에는 정확한 HTTPS 출처를 선언합니다. 외부 연결·이미지·폰트 출처는 리소스의 `network` 승인에 따라 CSP에 반영됩니다. Web Worker는 앱 출처 또는 `blob:`에서 실행하고, Service Worker 등록은 차단합니다. 앱 화면과 Core 계좌·승인 화면은 각자의 출처를 사용합니다.
+
+`limits`는 앱이 요청하는 실행 조건입니다. 운영자 상한을 초과하면 준비 단계에서 거부합니다. CPU·메모리는 실제 컨테이너 할당과 실행 요율에 함께 반영합니다. HTTP 요청·응답 상한은 각각 적용하며, `/tmp`는 메모리에 포함되는 임시 공간입니다. 기동 제한 시간 안에 TCP 포트 또는 `readiness_path`가 준비되어야 합니다. 계속 실행·자동 중지는 기존 리소스 정책을 사용합니다.
+
+한 이미지 안의 여러 프로세스는 같은 자원 한도와 실행 예산을 공유합니다. 현재 배포 단위는 HTTP 이미지 하나입니다. 큰 파일은 관리형 파일 전송 링크로 스트리밍합니다. Core는 일반 HTTP 본문의 합산 버퍼 상한도 집행하고, 혼잡 시 실행 접수 전에 `429 http_capacity_busy`를 반환합니다.
+
+`services`에 `objects`를 선언하면 PostgreSQL·Redis와 같은 보관 용량 안에 파일을 저장합니다. 관리형 HTTP 실행기는 S3 기본 작업을 위한 `AWS_ENDPOINT_URL_S3`와 버킷 `workspace`를 제공합니다. **Put/Get/Head/DeleteObject, HeadBucket, ListObjectsV2**를 지원하며 multipart·Range·AWS 청크 서명·AWS 사전 서명 URL은 별도 확장 범위입니다. 큰 파일은 `POST /v1/objects/links`로 최대 5분·1회 전송 링크를 발급합니다. 전송 상한 예산을 예약하고 관측량을 정산하며 미사용액을 반환합니다.
+
+```python
+async with httpx.AsyncClient(base_url=os.environ["CODERS_URL"]) as core:
+    result = await core.post("/v1/objects/links", json={
+        "key": "images/sample.png", "method": "PUT", "size": file_size
+    })
+    result.raise_for_status()
+    upload_url = result.json()["url"]
+```
+
+브라우저는 `upload_url`에 파일 본문을 `PUT`합니다. `GET` 링크는 같은 객체 이름과 `method: GET`으로 발급합니다. 접근 철회·승인 변경·보관 계약 만료가 파일 접근에 반영됩니다. 파일 보관료는 기존 계약, 전송료는 공동 계좌와 현재 실행 예산에 귀속됩니다. Core 접근 로그는 전송 링크 토큰을 가립니다.
+
+비밀정보는 `secrets: ["APP_API_TOKEN"]`처럼 환경변수 이름을 선언하고, 소유자가 **워크스페이스 일반 설정 → 비밀정보**에서 값을 등록합니다. Core는 암호화해 보관하고 선언된 이름만 리소스 전용 실행 환경에 전달합니다. 값 변경은 실행 세대를 갱신하며, 필요한 값이 없으면 실행 전에 설정을 안내합니다. `CODERS_*`, DB 연결 주소 등 플랫폼 환경변수는 Core가 관리합니다. 사용자 지정 비밀정보 환경은 관리형 HTTP 실행기에서 제공합니다.
+
 ### 선택적 요청 단위 공유 실행
 
 리소스 소유자는 **일반 설정 → 서버 공유**에서 앱 서버 공유와 DB 서버 공유를 각각 허용합니다.
