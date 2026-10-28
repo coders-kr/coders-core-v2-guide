@@ -625,6 +625,8 @@ Promise는 창을 닫으면 `{ status: 'closed' }`, 이미 열려 있으면 `{ s
 
 ### 워크스페이스 활동과 선택적 강조
 
+[실행 가능한 공동 편집 데모](https://core-v2.coders.kr/use/gh-e2ac3f0106c86b75e4fbfeabde)와 [Agent CLI 소스](https://github.com/cykim8811/coders-activity-demo)를 제공합니다.
+
 앱은 공식 `coders-activity` 엔드포인트로 동작과 데이터 변경 신호를 발행할 수 있습니다.
 같은 워크스페이스의 브라우저·CLI는 인증된 활동 구독을 사용합니다.
 `createClient().watchActivity({onReset,onEvent,highlight:true})`로 데이터를 다시 조회하고,

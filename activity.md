@@ -4,6 +4,18 @@
 앱은 상태 조회와 행동 실행에 기존 HTTP API를 사용하고, 활동으로 화면 갱신과 강조 시점을 알립니다.
 데이터의 기준은 워크스페이스 DB입니다.
 
+## 실행 가능한 데모
+
+[함께 쓰기 데모](https://core-v2.coders.kr/use/gh-e2ac3f0106c86b75e4fbfeabde) · [공개 저장소와 CLI 연결 방법](https://github.com/cykim8811/coders-activity-demo#agent-연결)
+
+로그인 후 워크스페이스를 생성하고 문서를 엽니다.
+브라우저에서 제목을 저장하거나 같은 워크스페이스의 CLI에서 `python3 agent.py save '새 제목'`을 실행하면
+열린 브라우저가 데이터를 다시 읽고 문서 영역을 강조합니다.
+`python3 agent.py state`는 문서와 가능한 행동을, `python3 agent.py watch`는 실시간 활동을 제공합니다.
+브라우저와 Agent는 동일한 앱 API와 PostgreSQL 데이터를 사용합니다.
+CLI 연결에는 기존 Coders 계좌 인증 키와 같은 워크스페이스 ID를 사용합니다.
+워크스페이스 생성·보관·실행에는 일반 Coders 요금이 적용됩니다.
+
 ## 이벤트
 
 ```json
