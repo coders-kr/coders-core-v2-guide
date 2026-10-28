@@ -14,7 +14,7 @@ from pygments.util import ClassNotFound
 ROOT = Path(__file__).parent
 BASE = 'https://dev.coders.kr/'
 REPO = 'https://github.com/coders-kr/coders-core-v2-guide'
-SECTIONS = ['integration', 'quickstart', 'github', 'budget', 'permissions', 'backend', 'errors', 'support', 'checklist']
+SECTIONS = ['integration', 'quickstart', 'github', 'app-versions', 'budget', 'permissions', 'backend', 'errors', 'support', 'checklist']
 
 
 def build():
@@ -121,7 +121,7 @@ def build():
     (output / '.nojekyll').touch()
     (output / 'robots.txt').write_text(f'User-agent: *\nAllow: /\nSitemap: {BASE}sitemap.xml\n')
     (output / 'sitemap.xml').write_text(f'<?xml version="1.0" encoding="utf-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>{BASE}</loc></url></urlset>')
-    if len(toc) != 9:
+    if len(toc) != len(SECTIONS):
         raise ValueError('Unexpected guide section count')
     print(f'Built {len(toc)} sections into {output}/index.html')
 
