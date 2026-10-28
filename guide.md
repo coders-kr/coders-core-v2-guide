@@ -453,7 +453,7 @@ HTTP 이미지 앱은 경로 접두사를 선언하여 기존 서버의 라우�
 
 한 이미지 안의 여러 프로세스는 같은 자원 한도와 실행 예산을 공유합니다. 현재 배포 단위는 HTTP 이미지 하나입니다. 큰 파일은 관리형 파일 전송 링크로 스트리밍합니다. Core는 일반 HTTP 본문의 합산 버퍼 상한도 집행하고, 혼잡 시 실행 접수 전에 `429 http_capacity_busy`를 반환합니다.
 
-`services`에 `objects`를 선언하면 PostgreSQL·Redis와 같은 보관 용량 안에 파일을 저장합니다. 관리형 HTTP 실행기는 S3 기본 작업을 위한 `AWS_ENDPOINT_URL_S3`와 버킷 `workspace`를 제공합니다. **Put/Get/Head/DeleteObject, HeadBucket, ListObjectsV2**를 지원하며 multipart·Range·AWS 청크 서명·AWS 사전 서명 URL은 별도 확장 범위입니다. 큰 파일은 `POST /v1/objects/links`로 최대 5분·1회 전송 링크를 발급합니다. 전송 상한 예산을 예약하고 관측량을 정산하며 미사용액을 반환합니다.
+`services`에 `objects`를 선언하면 PostgreSQL·Redis와 같은 보관 용량 안에 파일을 저장합니다. 관리형 HTTP 실행기는 S3 작업을 위한 `AWS_ENDPOINT_URL_S3`와 버킷 `workspace`를 제공합니다. 오픈소스 Versity Gateway가 **객체 CRUD·일괄 삭제·같은 리소스 내 복사·목록·multipart·Range·조건부 조회**를 처리합니다. SDK는 path-style·일반 본문·Content-Length를 사용합니다. 브라우저에는 Core 전송 링크 또는 앱의 인증된 파일 중계를 사용합니다. 큰 파일은 `POST /v1/objects/links`로 최대 5분·1회 전송 링크를 발급합니다. 전송 상한 예산을 예약하고 관측량을 정산하며 미사용액을 반환합니다.
 
 ```python
 async with httpx.AsyncClient(base_url=os.environ["CODERS_URL"]) as core:
@@ -470,9 +470,10 @@ async with httpx.AsyncClient(base_url=os.environ["CODERS_URL"]) as core:
 
 ### 선택적 요청 단위 공유 실행
 
-리소스 소유자는 **일반 설정 → 서버 공유**에서 앱 서버 공유와 DB 서버 공유를 각각 허용합니다.
+리소스 소유자는 **일반 설정 → 서버 공유**에서 앱 서버 공유·DB 서버 공유·파일 저장소 서버 공유를 각각 허용합니다.
 앱 서버 공유는 같은 앱·커밋·권한에 동의한 리소스 사이의 메모리 재사용을 허용합니다.
 DB 서버 공유는 리소스별 DB·역할·용량을 구분한 채 PostgreSQL 서버 자원을 공유합니다.
+파일 저장소 서버 공유도 같은 원칙으로 리소스별 파일·용량을 유지하며 S3 서버 자원을 공유합니다. 상세 S3 지원 범위와 과금은 [파일 저장소](objects.html)에 정의합니다.
 각 요청의 비용과 데이터 접근 권한은 현재 리소스에 귀속됩니다.
 
 HTTP 이미지 앱은 `coders.json`의 최상위에 다음 선언을 추가하여 공유 실행을 지원합니다.
