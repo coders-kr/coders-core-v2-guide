@@ -581,37 +581,44 @@ Core는 현재 앱 출처의 `/_coders/sdk.js`에서 이 모듈을 제공합니�
 프론트 실행 권한과 직접 네트워크 권한은 각각 승인합니다.
 개발자 프론트를 신뢰할 때는 입력 데이터 접근과 외부 전송 능력도 함께 고려합니다.
 
-### 워크스페이스 멤버 관리
+### 워크스페이스 관리
 
-앱의 **멤버 관리** 버튼은 현재 워크스페이스의 Coders 관리 창을 엽니다.
-`/c` 메뉴의 **멤버 관리**도 같은 창을 엽니다.
+앱의 **워크스페이스 설정** 버튼과 `/c` 메뉴는 같은 Coders 관리 창을 엽니다.
+Core가 현재 앱 연결에서 관리할 워크스페이스를 결정합니다.
 
-```html
-<button type="button" id="manage-members">멤버 관리</button>
-<script type="module">
-  import { createClient } from '/_coders/sdk.js';
-  const coders = createClient();
+```js
+import { createClient } from '/_coders/sdk.js';
+const coders = createClient();
 
-  document.querySelector('#manage-members').addEventListener('click', async () => {
-    try {
-      const result = await coders.openWorkspaceSettings({ section: 'members' });
-      // 닫으면 { status: 'closed' }, 이미 열려 있으면 { status: 'busy' }
-    } catch (error) {
-      // 앱의 오류 안내 UI에 연결합니다.
-      console.error(error.message);
-    }
-  });
-</script>
+await coders.openWorkspaceSettings(); // 일반 설정
+await coders.openWorkspaceSettings({ section: 'members' }); // 멤버 관리로 바로 이동
 ```
 
-이 메서드는 Coders 앱 화면의 프론트 iframe에서 사용합니다.
-Core가 현재 앱 연결에서 워크스페이스를 결정하므로 호출 인자는 `section: 'members'`입니다.
-관리 창을 열지 못하면 Promise가 거부되며, 창을 닫으면 완료됩니다.
+| section | 표시 내용 |
+|---|---|
+| `general` (기본값) | 워크스페이스 이름과 권한·실행 설정 링크 |
+| `members` | 멤버 목록, 소유자의 초대·제외 |
+| `version` | 현재 실행 버전과 소유자의 버전 변경 |
+| `account` | 공동 잔액, 매일 충전 목표와 채우기·자동 충전 설정 링크 |
 
-소유자는 Coders 사용자 ID로 멤버를 초대하거나 제외할 수 있고, 멤버는 목록을 확인합니다.
-멤버 권한은 워크스페이스 전체의 데이터와 공동 잔액에 적용됩니다.
-목록과 초대·제외 처리는 Core 화면 안에서 수행하며 SDK는 창 상태만 반환합니다.
-앱에서는 멤버 관리 버튼을 이 메서드에 연결하면 됩니다.
+`section`은 관리 창의 시작 위치입니다. Core가 로그인 사용자와 현재 역할에 따라
+허용된 작업을 표시하고 변경 권한을 집행합니다. 소유자는 이름과 실행 버전, 멤버를
+관리하며 멤버는 목록과 설정을 확인합니다. 멤버 권한은 워크스페이스 전체의 데이터와
+공동 잔액에 적용됩니다. 초대할 때는 Coders 사용자 ID를 입력합니다.
+
+버전 변경은 Core의 기존 승인 흐름을 사용하며 추가 권한을 확인한 뒤 앱을 다시 엽니다.
+채우기·자동 충전과 개인 계좌는 Coders 관리 화면을 새 탭으로 엽니다.
+
+이 메서드는 Coders 앱 화면의 프론트 iframe에서 사용합니다.
+Promise는 창을 닫으면 `{ status: 'closed' }`, 이미 열려 있으면 `{ status: 'busy' }`로
+완료됩니다. 창을 열지 못하면 Promise가 거부됩니다.
+멤버·계좌 정보와 변경 처리는 Core 화면 안에 두고 SDK는 창 상태만 반환합니다.
+앱에서는 버튼 클릭 시 이 메서드를 호출하고 필요한 오류 안내를 연결하면 됩니다.
+
+### 워크스페이스 멤버 관리
+
+멤버 관리 버튼은 `coders.openWorkspaceSettings({ section: 'members' })`로 연결합니다.
+소유자의 초대·제외와 멤버 목록 확인은 같은 Coders 관리 창에서 처리합니다.
 
 ## 오류와 재시도
 
