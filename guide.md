@@ -620,6 +620,15 @@ Promise는 창을 닫으면 `{ status: 'closed' }`, 이미 열려 있으면 `{ s
 멤버 관리 버튼은 `coders.openWorkspaceSettings({ section: 'members' })`로 연결합니다.
 소유자의 초대·제외와 멤버 목록 확인은 같은 Coders 관리 창에서 처리합니다.
 
+### 워크스페이스 활동과 선택적 강조
+
+앱은 공식 `coders-activity` 엔드포인트로 동작과 데이터 변경 신호를 발행할 수 있습니다.
+같은 워크스페이스의 브라우저·CLI는 인증된 활동 구독을 사용합니다.
+`createClient().watchActivity({onReset,onEvent,highlight:true})`로 데이터를 다시 조회하고,
+같은 `data-coders-target` ID를 가진 컴포넌트를 강조합니다.
+공유 서버의 활동은 앱의 보고로, 사용자 실행은 인증된 사용자 범위로 표시됩니다.
+[활동 규약](activity.html)과 [공동 편집 예제](activity-example.zip)를 참고하세요.
+
 ## 오류와 재시도
 
 | 응답 | 후속 동작 |
