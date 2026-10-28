@@ -99,6 +99,56 @@ Core는 공개 레포 ID·게시 커밋·GitHub-hosted 빌드 증명을 확인�
 다시 준비할 수 있습니다. 빌드는 개발자의 GitHub Actions에서 수행합니다.
 압축 이미지 용량의 기본 상한은 512 MiB입니다.
 
+### 빠른 시작 빌드
+
+공식 [Fast Start 빌드 도구](https://github.com/cykim8811/coders-fast-start)를 사용하는 앱은
+미리 준비된 Python·Node.js 실행 환경에 배정됩니다. `coders.json`과 일반 HTTP 서버 코드를 그대로 사용합니다.
+코드와 의존성을 `/app` 묶음으로 만들고, 기존 이미지와 동일하게 커밋과 빌드 증명을 검증합니다.
+앱을 배정하기 전 빈 환경에는 사용자 코드·DB 접근 권한·리소스 예산이 없습니다.
+배정한 환경은 한 리소스만 사용하며, 사용 후 폐기합니다.
+
+`.github/workflows/coders-build.yml` 예시입니다. 이 경로와 권한은 빌드 증명 검증에 사용합니다.
+
+```yaml
+name: Build Coders fast-start image
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cykim8811/coders-fast-start@3de8bc896f7fcd3a301fc09d7b321ec2d0c13f45
+        with:
+          runtime: python-3.12
+          start: python -m uvicorn api.main:app --host 0.0.0.0 --port 8080
+```
+
+Node.js 앱은 `runtime: nodejs-22`, `start: npm start`처럼 지정합니다.
+Python은 `uv.lock`, `requirements.txt`, `pyproject.toml` 순서로 의존성을 준비합니다.
+Node.js는 `package.json`이 있으면 `npm ci`, 선택적 `build`, 개발 의존성 정리를 수행합니다.
+빌드 입력에 잠금 파일을 포함합니다. `build`로 pnpm·yarn·모노레포 등의 빌드 명령을 지정하고,
+`context`로 앱 디렉터리를 선택할 수 있습니다. 빌드 결과는 일반 OCI 이미지로도 실행 가능합니다.
+
+공식 환경은 Linux/amd64 Debian Bookworm 기반 Python 3.12 또는 Node.js 22입니다.
+앱과 런타임 의존성은 읽기 전용 `/app`에 들어갑니다. Core는 기본 512 MiB와 아카이브 항목 50,000개 이내의
+묶음을 검사하며, 경로를 벗어나는 링크와 특수 파일을 거부합니다. 별도 OS 구성이 필요한 앱은 일반 이미지 빌드를 사용합니다.
+
+실행 시 설치·컴파일을 끝낸 상태여야 합니다. 앱 임포트·초기화·마이그레이션·DB·Redis 준비 시간은 기동 시간에 포함됩니다.
+시작 시 외부 작업을 줄이고, 긴 초기 작업은 별도 작업으로 실행하면 빠른 시작 효과가 커집니다.
+준비된 풀이 비어 있으면 같은 환경을 새로 생성합니다. 빈 풀의 대기 비용은 Coders가 부담하며,
+리소스 배정 작업과 앱 실행은 기존 리소스 공동 계좌의 컴퓨팅 정산을 따릅니다.
+
+[빠른 시작 공개 예제](https://api.coders.kr/cykim8811/coders-http-example/1053ee01a47fe77ad656804458434c088eae63aa) ·
+[빌드 워크플로](https://github.com/cykim8811/coders-http-example/blob/1053ee01a47fe77ad656804458434c088eae63aa/.github/workflows/coders-build.yml)
+
 ### HTTP 실행 계약
 
 - `0.0.0.0:$PORT`에서 HTTP 서버를 실행합니다. 현재 포트는 8080입니다.
