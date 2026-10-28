@@ -121,6 +121,7 @@ def build():
     activity = markdown.render((ROOT / 'activity.md').read_text())
     (output / 'activity.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>워크스페이스 활동 · Coders</title><style>body{font:16px/1.8 system-ui;max-width:900px;margin:48px auto;padding:0 24px;color:#18191c}pre{overflow:auto;background:#f5f5f6;padding:20px;border-radius:10px}a{color:inherit}</style><a href="/">← 개발자 가이드</a><main>' + activity + '</main></html>')
     shutil.copy2(ROOT / 'activity.md', output / 'activity.md')
+    shutil.copy2(ROOT / 'agent-connect.py', output / 'agent-connect.py')
     shutil.copy2(ROOT / 'activity-example.zip', output / 'activity-example.zip')
 
     (output / '.nojekyll').touch()

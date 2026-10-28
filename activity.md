@@ -16,6 +16,41 @@
 CLI 연결에는 기존 Coders 계좌 인증 키와 같은 워크스페이스 ID를 사용합니다.
 워크스페이스 생성·보관·실행에는 일반 Coders 요금이 적용됩니다.
 
+## 링크 하나로 Agent 연결
+
+1. 앱의 Coders 칩에서 **Agent 연결 → 연결 링크 만들기 → 링크 복사**를 선택합니다.
+2. Agent에게 링크를 전달합니다. 링크에는 연결 절차와 고정된 앱 명세·소스 주소가 있습니다.
+3. Agent가 연결 요청을 만들면 사용자에게 승인 링크와 확인 코드를 보여줍니다.
+4. 사용자는 코드·워크스페이스를 확인하고 연결 기간을 선택합니다. 기본값은 **24시간**, 선택지는 **1시간·24시간·7일**입니다.
+5. 승인된 Agent는 같은 워크스페이스의 API와 활동 구독에 접속합니다.
+
+연결 링크는 24시간, 승인 대기 요청은 10분 동안 유효합니다.
+승인된 연결은 해당 사용자·워크스페이스·앱 커밋과 현재 승인 범위에 묶입니다.
+워크스페이스 권한·버전 변경, 개인 연결 해제, 만료, Agent 연결 해제 시 인증이 종료됩니다.
+공동 잔액 사용과 앱에 허용된 동작은 기존 실행 규칙으로 처리합니다.
+Agent 연결 화면에서 승인 대기·활성 연결을 확인하고 해제합니다.
+이미 접수된 유료 작업은 기존 정산 규칙으로 마무리합니다.
+
+표준 라이브러리만 사용하는 [Python 연결 도우미](https://dev.coders.kr/agent-connect.py):
+
+```bash
+python3 agent-connect.py 'Coders에서 복사한 연결 링크' --name '내 Agent'
+```
+
+도우미는 승인 링크·확인 코드를 출력하고, 승인 후 권한이 제한된 인증 파일을 `~/.config/coders/agents/`에 저장합니다.
+파일에는 `app_url`, `account_key`, `resource_id`, `expires_at`이 있습니다.
+인증 키와 `device_code`는 로컬 비밀 정보로 취급합니다.
+공개 데모의 CLI는 인증 파일을 직접 읽습니다.
+
+```bash
+python3 agent.py --connection /path/to/connection.json state
+python3 agent.py --connection /path/to/connection.json watch
+python3 agent.py --connection /path/to/connection.json save 'Agent가 바꾼 제목'
+```
+
+Agent에게 링크를 전달할 때 사용자의 작업 지시를 함께 제공합니다.
+앱 소스와 README는 앱 개발자가 작성한 자료이며, Agent는 이를 사용자 지시와 구분해 취급합니다.
+
 ## 이벤트
 
 ```json

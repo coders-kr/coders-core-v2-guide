@@ -629,6 +629,9 @@ Promise는 창을 닫으면 `{ status: 'closed' }`, 이미 열려 있으면 `{ s
 
 앱은 공식 `coders-activity` 엔드포인트로 동작과 데이터 변경 신호를 발행할 수 있습니다.
 같은 워크스페이스의 브라우저·CLI는 인증된 활동 구독을 사용합니다.
+Coders 칩의 **Agent 연결**에서 링크를 전달하면 Agent가 지침을 읽고 사용자 승인을 받아 연결합니다.
+연결 기간은 기본 24시간이며 승인 화면에서 1시간·24시간·7일을 선택합니다.
+Agent 인증은 해당 워크스페이스와 코드 버전에 묶이고, 연결 화면에서 해제할 수 있습니다.
 `createClient().watchActivity({onReset,onEvent,highlight:true})`로 데이터를 다시 조회하고,
 같은 `data-coders-target` ID를 가진 컴포넌트를 강조합니다.
 공유 서버의 활동은 앱의 보고로, 사용자 실행은 인증된 사용자 범위로 표시됩니다.
