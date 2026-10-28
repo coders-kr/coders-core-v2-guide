@@ -581,6 +581,38 @@ Core는 현재 앱 출처의 `/_coders/sdk.js`에서 이 모듈을 제공합니�
 프론트 실행 권한과 직접 네트워크 권한은 각각 승인합니다.
 개발자 프론트를 신뢰할 때는 입력 데이터 접근과 외부 전송 능력도 함께 고려합니다.
 
+### 워크스페이스 멤버 관리
+
+앱의 **멤버 관리** 버튼은 현재 워크스페이스의 Coders 관리 창을 엽니다.
+`/c` 메뉴의 **멤버 관리**도 같은 창을 엽니다.
+
+```html
+<button type="button" id="manage-members">멤버 관리</button>
+<script type="module">
+  import { createClient } from '/_coders/sdk.js';
+  const coders = createClient();
+
+  document.querySelector('#manage-members').addEventListener('click', async () => {
+    try {
+      const result = await coders.openWorkspaceSettings({ section: 'members' });
+      // 닫으면 { status: 'closed' }, 이미 열려 있으면 { status: 'busy' }
+    } catch (error) {
+      // 앱의 오류 안내 UI에 연결합니다.
+      console.error(error.message);
+    }
+  });
+</script>
+```
+
+이 메서드는 Coders 앱 화면의 프론트 iframe에서 사용합니다.
+Core가 현재 앱 연결에서 워크스페이스를 결정하므로 호출 인자는 `section: 'members'`입니다.
+관리 창을 열지 못하면 Promise가 거부되며, 창을 닫으면 완료됩니다.
+
+소유자는 Coders 사용자 ID로 멤버를 초대하거나 제외할 수 있고, 멤버는 목록을 확인합니다.
+멤버 권한은 워크스페이스 전체의 데이터와 공동 잔액에 적용됩니다.
+목록과 초대·제외 처리는 Core 화면 안에서 수행하며 SDK는 창 상태만 반환합니다.
+앱에서는 멤버 관리 버튼을 이 메서드에 연결하면 됩니다.
+
 ## 오류와 재시도
 
 | 응답 | 후속 동작 |
