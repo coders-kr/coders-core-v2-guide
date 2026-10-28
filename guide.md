@@ -99,55 +99,15 @@ Core는 공개 레포 ID·게시 커밋·GitHub-hosted 빌드 증명을 확인�
 다시 준비할 수 있습니다. 빌드는 개발자의 GitHub Actions에서 수행합니다.
 압축 이미지 용량의 기본 상한은 512 MiB입니다.
 
-### 빠른 시작 빌드
+### 실행 환경과 시작 시간
 
-공식 [Fast Start 빌드 도구](https://github.com/cykim8811/coders-fast-start)를 사용하는 앱은
-미리 준비된 Python·Node.js 실행 환경에 배정됩니다. `coders.json`과 일반 HTTP 서버 코드를 그대로 사용합니다.
-코드와 의존성을 `/app` 묶음으로 만들고, 기존 이미지와 동일하게 커밋과 빌드 증명을 검증합니다.
-앱을 배정하기 전 빈 환경에는 사용자 코드·DB 접근 권한·리소스 예산이 없습니다.
-배정한 환경은 한 리소스만 사용하며, 사용 후 폐기합니다.
+HTTP 앱은 리소스별 Knative 서버로 실행합니다. 같은 리소스의 요청과 WebSocket 연결은
+서버를 재사용하며, 리소스 간 메모리·네트워크·데이터·계좌를 격리합니다.
+일반 Dockerfile과 `0.0.0.0:$PORT` 서버를 사용합니다.
 
-`.github/workflows/coders-build.yml` 예시입니다. 이 경로와 권한은 빌드 증명 검증에 사용합니다.
-
-```yaml
-name: Build Coders fast-start image
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-permissions:
-  contents: read
-  packages: write
-  id-token: write
-  attestations: write
-jobs:
-  image:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: cykim8811/coders-fast-start@3de8bc896f7fcd3a301fc09d7b321ec2d0c13f45
-        with:
-          runtime: python-3.12
-          start: python -m uvicorn api.main:app --host 0.0.0.0 --port 8080
-```
-
-Node.js 앱은 `runtime: nodejs-22`, `start: npm start`처럼 지정합니다.
-Python은 `uv.lock`, `requirements.txt`, `pyproject.toml` 순서로 의존성을 준비합니다.
-Node.js는 `package.json`이 있으면 `npm ci`, 선택적 `build`, 개발 의존성 정리를 수행합니다.
-빌드 입력에 잠금 파일을 포함합니다. `build`로 pnpm·yarn·모노레포 등의 빌드 명령을 지정하고,
-`context`로 앱 디렉터리를 선택할 수 있습니다. 빌드 결과는 일반 OCI 이미지로도 실행 가능합니다.
-
-공식 환경은 Linux/amd64 Debian Bookworm 기반 Python 3.12 또는 Node.js 22입니다.
-앱과 런타임 의존성은 읽기 전용 `/app`에 들어갑니다. Core는 기본 512 MiB와 아카이브 항목 50,000개 이내의
-묶음을 검사하며, 경로를 벗어나는 링크와 특수 파일을 거부합니다. 별도 OS 구성이 필요한 앱은 일반 이미지 빌드를 사용합니다.
-
-실행 시 설치·컴파일을 끝낸 상태여야 합니다. 앱 임포트·초기화·마이그레이션·DB·Redis 준비 시간은 기동 시간에 포함됩니다.
-시작 시 외부 작업을 줄이고, 긴 초기 작업은 별도 작업으로 실행하면 빠른 시작 효과가 커집니다.
-준비된 풀이 비어 있으면 같은 환경을 새로 생성합니다. 빈 풀의 대기 비용은 Coders가 부담하며,
-리소스 배정 작업과 앱 실행은 기존 리소스 공동 계좌의 컴퓨팅 정산을 따릅니다.
-
-[빠른 시작 공개 예제](https://api.coders.kr/cykim8811/coders-http-example/1053ee01a47fe77ad656804458434c088eae63aa) ·
-[빌드 워크플로](https://github.com/cykim8811/coders-http-example/blob/1053ee01a47fe77ad656804458434c088eae63aa/.github/workflows/coders-build.yml)
+시작 시간을 줄이려면 이미지와 의존성을 가볍게 구성하고 시작 시 외부 작업을 줄입니다.
+이미지 다운로드·노드 배치·앱 초기화가 최초 준비 시간에 포함됩니다.
+소유자가 **계속 실행**을 선택하면 접속이 없는 시간에도 서버와 실행 비용이 유지됩니다.
 
 ### HTTP 실행 계약
 
@@ -178,10 +138,12 @@ Core는 클라이언트가 보낸 신원·역할 헤더를 제외하고 현재 �
 기본 30초의 유휴 구간에서 종료하고, 계속 실행은 접속이 없는 시간도 공동 계좌로 실행합니다.
 실행 환경은 재시작될 수 있으며 영속 상태는 DB에 저장합니다.
 
-Core는 리소스 계좌의 서버 예산으로 실행을 유지하고 내부 예산 갱신 시 DB 연결을 정리합니다.
+Core는 리소스 공동 계좌에서 서버 실행 기간을 선불 예약합니다. 새 기간을 예약할 수 없으면
+기존 선불 기간 안에서 실행을 종료합니다. DB·Redis는 독립 데이터 서비스가 관리합니다.
 SQLAlchemy는 `pool_pre_ping=True`, Node.js `pg.Pool`은 유휴 연결의 `error` 처리를 구성합니다.
 끊긴 연결은 새로 생성합니다. HTTP 응답은 최대 본문 크기 안에서 모아서 반환합니다.
-기본 리소스당 동시 연결 한도는 32개입니다. 실행 용량 부족은 `503 sandbox_busy`입니다.
+기본 리소스당 인스턴스는 1개이며 동시 연결 한도는 32개입니다.
+준비 중에는 `503 server_starting`, 충전이 필요하면 `402 allocation_required`를 반환합니다.
 
 ### Redis
 
