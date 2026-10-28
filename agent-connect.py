@@ -15,7 +15,11 @@ def post(url, body):
     request = Request(
         url,
         data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "Coders-Agent-Connect/1.0",
+        },
     )
     with urlopen(request, timeout=30) as response:
         return json.load(response)
