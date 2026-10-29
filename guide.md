@@ -447,7 +447,7 @@ HTTP 이미지 앱은 경로 접두사를 선언하여 기존 서버의 라우�
 
 `prefix`는 `/`로 시작하고 끝나는 경로입니다. 더 긴 접두사를 우선 적용하며, 참조하는 HTTP 엔드포인트의 `path`는 `/`입니다. 원래 하위 경로·쿼리·허용 메서드·바이너리 본문과 응답 MIME·다운로드 헤더를 전달합니다. WebSocket도 같은 경로 규칙과 인증·리소스·예산 검사를 사용합니다. CLI·Agent는 `/github/{owner}/{repo}/{commit}/{endpoint}/{path}`에서 같은 선언 경로를 호출합니다. `/_coders/*`는 Core가 처리합니다.
 
-`browser.workers`, `wasm`, `blob_images`는 앱 출처 안의 브라우저 기능입니다. `browser.origins`에는 정확한 HTTPS 출처를 선언합니다. 외부 연결·이미지·폰트 출처는 리소스의 `network` 승인에 따라 CSP에 반영됩니다. Web Worker는 앱 출처 또는 `blob:`에서 실행하고, Service Worker 등록은 차단합니다. 앱 화면과 Core 계좌·승인 화면은 각자의 출처를 사용합니다.
+`browser.workers`, `wasm`, `blob_images`는 앱 출처 안의 브라우저 기능입니다. `browser.frames: true`는 앱과 같은 출처의 내부 iframe을 허용합니다. 앱 문서의 `frame-src`와 `frame-ancestors`에 `'self'`를 함께 추가하며 앱이 임의 외부 출처의 iframe을 추가하는 권한은 포함하지 않으며, 기존 Coders 칩은 유지합니다. `browser.origins`에는 정확한 HTTPS 출처를 선언합니다. 외부 연결·이미지·폰트 출처는 리소스의 `network` 승인에 따라 CSP에 반영됩니다. Web Worker는 앱 출처 또는 `blob:`에서 실행하고, Service Worker 등록은 차단합니다. 앱 화면과 Core 계좌·승인 화면은 각자의 출처를 사용합니다.
 
 `limits`는 앱이 요청하는 실행 조건입니다. 운영자 상한을 초과하면 준비 단계에서 거부합니다. CPU·메모리는 실제 컨테이너 할당과 실행 요율에 함께 반영합니다. HTTP 요청·응답 상한은 각각 적용하며, `/tmp`는 메모리에 포함되는 임시 공간입니다. 기동 제한 시간 안에 TCP 포트 또는 `readiness_path`가 준비되어야 합니다. 계속 실행·자동 중지는 기존 리소스 정책을 사용합니다.
 
